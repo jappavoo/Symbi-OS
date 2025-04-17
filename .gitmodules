@@ -36,3 +36,9 @@
 [submodule "saltstack"]
 	path = saltstack
 	url = git@github.com:Symbi-OS/saltstack.git
+[submodule "libkallsyms"]
+	path = libkallsyms
+	url = https://github.com/F-Wilke/libkallsyms.git
+[submodule "libsloader"]
+	path = libsloader
+	url = https://github.com/F-Wilke/libsloader.git
