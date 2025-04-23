@@ -280,16 +280,19 @@ l_cp_vmlinux:
 
 MODULE_SRC ?= ./libkallsyms/babel
 MODULE_DEST ?= $(HOME)/babel_build
-MODULE_NAME ?= babel
+MODULE_NAME ?= babel_full
 MODULE_LOCAL_DEST ?= ./built_modules
 KERNEL_BUILD_PATH ?= $(LINUX_PATH)
+KALLSYMS_SCRIPT_SRC ?= ./libkallsyms/kallsyms_script
+KALLSYMS_SCRIPT_DEST ?= $(HOME)/kallsyms_script
 
 
 copy_module_src:
-	sudo docker cp $(MODULE_SRC) $(CONT):$(MODULE_DEST)
+	$(RUN_IN_CONT) sh -c 'mkdir -p $(MODULE_DEST)'
+	sudo docker cp $(MODULE_SRC)/. $(CONT):$(MODULE_DEST)
 
 build_module_in_container:
-	$(RUN_IN_CONT) sh -c 'mkdir -p $(MODULE_DEST) && cd $(MODULE_DEST) && make -C $(KERNEL_BUILD_PATH) M=$(MODULE_DEST) modules'
+	$(RUN_IN_CONT) sh -c 'cd $(MODULE_DEST) && make -C $(KERNEL_BUILD_PATH) M=$(MODULE_DEST) modules'
 
 copy_module_back:
 	mkdir -p $(MODULE_LOCAL_DEST)
@@ -299,8 +302,24 @@ build_module_full: FEDORA_RELEASE=35
 build_module_full: copy_module_src build_module_in_container copy_module_back
 
 
+copy_kallsyms_src:
+	$(RUN_IN_CONT) sh -c 'mkdir -p $(KALLSYMS_SCRIPT_DEST)'
+	sudo docker cp $(KALLSYMS_SCRIPT_SRC)/. $(CONT):$(KALLSYMS_SCRIPT_DEST)
 
+build_kallsyms:
+	$(RUN_IN_CONT) sh -c 'cd $(KALLSYMS_SCRIPT_DEST) && make all'
 
+run_kallsyms:
+	$(RUN_IN_CONT) sh -c 'cd $(LINUX_PATH) && nm -n vmlinux | $(KALLSYMS_SCRIPT_DEST)/kallsyms --all-symbols > $(MODULE_DEST)/symbols.S '
+
+build_libkallsyms_module: FEDORA_RELEASE=35
+build_libkallsyms_module: copy_module_src copy_kallsyms_src build_kallsyms run_kallsyms build_module_in_container copy_module_back
+
+clean_module: FEDORA_RELEASE=35
+clean_module:
+	$(RUN_IN_CONT) sh -c 'cd $(MODULE_DEST) && make -C $(KERNEL_BUILD_PATH) M=$(MODULE_DEST) clean'
+	$(RUN_IN_CONT) sh -c 'rm -rf $(MODULE_DEST) && mkdir -p $(MODULE_DEST)'
+	$(RUN_IN_CONT) sh -c 'rm -rf $(KALLSYMS_SCRIPT_DEST) && mkdir -p $(KALLSYMS_SCRIPT_DEST)'
 
 # ====================================================
 # Grubby
