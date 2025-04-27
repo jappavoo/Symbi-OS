@@ -278,9 +278,9 @@ l_cp_vmlinux:
 
 # Build a kernel module inside container
 
-MODULE_SRC ?= ./libkallsyms/babel
-MODULE_DEST ?= $(HOME)/babel_build
-MODULE_NAME ?= babel_full
+MODULE_SRC ?= ./libkallsyms
+MODULE_DEST ?= $(HOME)/libkallsyms_build
+MODULE_NAME ?= libkallsyms
 MODULE_LOCAL_DEST ?= ./built_modules
 KERNEL_BUILD_PATH ?= $(LINUX_PATH)
 KALLSYMS_SCRIPT_SRC ?= ./libkallsyms/kallsyms_script
