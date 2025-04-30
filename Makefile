@@ -320,6 +320,7 @@ clean_module:
 	$(RUN_IN_CONT) sh -c 'cd $(MODULE_DEST) && make -C $(KERNEL_BUILD_PATH) M=$(MODULE_DEST) clean'
 	$(RUN_IN_CONT) sh -c 'rm -rf $(MODULE_DEST) && mkdir -p $(MODULE_DEST)'
 	$(RUN_IN_CONT) sh -c 'rm -rf $(KALLSYMS_SCRIPT_DEST) && mkdir -p $(KALLSYMS_SCRIPT_DEST)'
+	rm -rf $(MODULE_LOCAL_DEST)/$(MODULE_NAME).ko
 
 # ====================================================
 # Grubby
