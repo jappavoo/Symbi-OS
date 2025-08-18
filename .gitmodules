@@ -42,3 +42,6 @@
 [submodule "libsloader"]
 	path = libsloader
 	url = https://github.com/F-Wilke/libsloader.git
+[submodule "linux-kernel-module"]
+	path = linux-kernel-module
+	url = https://github.com/dwmkerr/linux-kernel-module.git
