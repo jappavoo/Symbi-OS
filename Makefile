@@ -25,12 +25,14 @@ master: disable_sudo_pw_checking docker_setup_and_start l_all grubby_add_kern en
 
 master_clean:
 	- sudo rm -rf /lib/modules/5.14.0+
+	- sudo rm -rf /lib/modules/5.14.0-kElevate
 	- sudo rm -rf /lib/modules/5.14.0-kElevate+
 	- sudo rm -rf /lib/modules/6.3.0
 	- sudo rm -rf /lib/modules/6.3.0-kElevate
 	- sudo rm /boot/*5.14.0*
 	- sudo rm /boot/*6.3.0*
 	- $(MAKE) grubby_rm_kern kp=/boot/vmlinuz-5.14.0+
+	- $(MAKE) grubby_rm_kern kp=/boot/vmlinuz-5.14.0-kElevate
 	- $(MAKE) grubby_rm_kern kp=/boot/vmlinuz-5.14.0-kElevate+
 	- $(MAKE) grubby_rm_kern kp=/boot/vmlinuz-6.3.0
 	- $(MAKE) grubby_rm_kern kp=/boot/vmlinuz-6.3.0-kElevate
@@ -73,10 +75,19 @@ master_clean:
 5.14.0-kElevate: KERN_REL=5.14.0
 5.14.0-kElevate: KERN_EXTRAVERSION=-kElevate
 5.14.0-kElevate: LINUX_BUILD=--branch 5.14-config --single-branch --depth 1 
-5.14.0-kElevate: KERN_VER=$(KERN_REL)$(KERN_EXTRAVERSION)+
+5.14.0-kElevate: KERN_VER=$(KERN_REL)$(KERN_EXTRAVERSION)
 5.14.0-kElevate: CONFIG=$(HOME)/linuxConfigs/5.14/USE_ME/symbiote_config
 
-5.14.0-kElevate: master
+# 5.14.0-kElevate: master
+# 5.14.0-kElevate: docker_prepare_linux_build
+# 5.14.0-kElevate: l_ins l_cp l_initrd
+# 5.14.0-kElevate: l_build l_ins l_cp l_initrd
+# 5.14.0-kElevate: l_cp l_initrd grubby_add_kern enable_sudo_pw_checking 
+# 5.14.0-kElevate: grubby_set_kele_default_and_reboot
+# 5.14.0-kElevate: l_cp_vmlinux
+# 5.14.0-kElevate: l_make_cscope
+5.14.0-kElevate: l_make_cflow
+
 
 # Note, I think the + is appended to the kernel if 1) there are uncomitted changes in the 
 # git repo where it was built, or if it was built on a non-tagged commit.
@@ -88,6 +99,7 @@ master_clean:
 # ========================
 CONT=linux_builder$(FEDORA_RELEASE)
 RUN_IN_CONT=sudo docker exec $(CONT)
+RUN_IN_CONT_IT=sudo docker exec -it $(CONT)
 
 HOME=/root
 LINUX_PATH=$(HOME)/linux
@@ -202,6 +214,10 @@ help_linux:
 # This is a bit of a mess, we're just trying to pull the repo if it doesn't alreay exist.
 # Maybe easier to just ignore the error?
 docker_prepare_linux_build:
+	if [ -n "$(LOCAL_LINUX_PATH)" ]; then \
+		sudo docker cp $(LOCAL_LINUX_PATH) $(CONT):$(LINUX_PATH); \
+		echo "Using local Linux path: $(LOCAL_LINUX_PATH)"; \
+	fi
 	$(RUN_IN_CONT) sh -c 'if [ ! -d "$(HOME)/linux" ]; then \
 		git clone $(LINUX_BUILD) https://github.com/Symbi-OS/linux.git $(HOME)/linux; \
 	else \
@@ -227,6 +243,16 @@ l_config:
 
 l_build:
 	$(RUN_IN_CONT) $(MAKE) -C $(LINUX_PATH) EXTRAVERSION='$(KERN_EXTRAVERSION)' -j$(NUM_CPUS)
+
+l_make_cscope:
+	$(RUN_IN_CONT) $(MAKE) -C $(LINUX_PATH) cscope
+
+l_run_cscope:
+	$(RUN_IN_CONT_IT) sh -c 'cd $(LINUX_PATH) && cscope -d'
+
+l_make_cflow:
+	$(RUN_IN_CONT) $(MAKE) -C $(LINUX_PATH) cflow
+
 
 l_ins_mods:
 	$(RUN_IN_CONT) $(MAKE) -C $(LINUX_PATH) modules_install -j$(NUM_CPUS)
@@ -292,7 +318,7 @@ copy_module_src:
 	sudo docker cp $(MODULE_SRC)/. $(CONT):$(MODULE_DEST)
 
 build_module_in_container:
-	$(RUN_IN_CONT) sh -c 'cd $(MODULE_DEST) && make -C $(KERNEL_BUILD_PATH) M=$(MODULE_DEST) modules'
+	$(RUN_IN_CONT) sh -c 'cd $(MODULE_DEST) && make -C $(KERNEL_BUILD_PATH) M=$(MODULE_DEST) V=1 modules'
 
 copy_module_back:
 	mkdir -p $(MODULE_LOCAL_DEST)
@@ -311,6 +337,9 @@ build_kallsyms:
 
 run_kallsyms:
 	$(RUN_IN_CONT) sh -c 'cd $(LINUX_PATH) && nm -n vmlinux | $(KALLSYMS_SCRIPT_DEST)/kallsyms --all-symbols > $(MODULE_DEST)/symbols.S '
+
+prepare_libkallsyms_module: FEDORA_RELEASE=35
+prepare_libkallsyms_module: copy_module_src copy_kallsyms_src build_kallsyms run_kallsyms  
 
 build_libkallsyms_module: FEDORA_RELEASE=35
 build_libkallsyms_module: copy_module_src copy_kallsyms_src build_kallsyms run_kallsyms build_module_in_container copy_module_back

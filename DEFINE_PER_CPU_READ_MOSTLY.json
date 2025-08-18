@@ -1,0 +1,1 @@
+["arch_max_freq_scale", "cpu_die_map", "cpu_core_map", "this_cpu_off", "arm64_ssbd_callback_required", "mce_num_banks", "cpu_sibling_map", "mce_banks_array", "pcpu_masks", "psci_cpuidle_data", "name", "espfix_stack", "cpu_info", "cpu_number", "bp_hardening_data", "_name", "cpu_llc_shared_map", "espfix_waddr", "sched_core_priority", "cpu_llc_id"]
