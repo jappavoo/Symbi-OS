@@ -45,3 +45,9 @@
 [submodule "linux-kernel-module"]
 	path = linux-kernel-module
 	url = https://github.com/dwmkerr/linux-kernel-module.git
+[submodule "glibc"]
+	path = glibc
+	url = https://github.com/bminor/glibc.git
+[submodule "binutils-gdb"]
+	path = binutils-gdb
+	url = git://sourceware.org/git/binutils-gdb.git

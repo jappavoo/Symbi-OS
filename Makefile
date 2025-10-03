@@ -77,14 +77,16 @@ master_clean:
 5.14.0-kElevate: LINUX_BUILD=--branch 5.14-config --single-branch --depth 1 
 5.14.0-kElevate: KERN_VER=$(KERN_REL)$(KERN_EXTRAVERSION)
 5.14.0-kElevate: CONFIG=$(HOME)/linuxConfigs/5.14/USE_ME/symbiote_config
-5.14.0-kElevate: LOCAL_LINUX_PATH=./linux
+# 5.14.0-kElevate: LOCAL_LINUX_PATH=./linux
 
 # 5.14.0-kElevate: master
 # 5.14.0-kElevate: docker_prepare_linux_build
+# 5.14.0-kElevate: l_build 
 # 5.14.0-kElevate: l_ins l_cp l_initrd
-# 5.14.0-kElevate: l_build l_ins l_cp l_initrd
+5.14.0-kElevate: l_build l_ins l_cp l_initrd
+# 5.14.0-kElevate: l_config
 # 5.14.0-kElevate: grubby_add_kern enable_sudo_pw_checking 
-5.14.0-kElevate: grubby_set_kele_default_and_reboot
+# 5.14.0-kElevate: grubby_set_kele_default_and_reboot
 # 5.14.0-kElevate: l_cp_vmlinux
 # 5.14.0-kElevate: l_make_cscope
 # 5.14.0-kElevate: l_make_cflow
@@ -148,7 +150,7 @@ help_docker:
 install_docker:
 	sudo dnf install dnf-plugins-core -y
 	sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo -y
-	sudo dnf install docker-ce docker-ce-cli containerd.io -y
+	sudo dnf install --allowerasing docker-ce docker-ce-cli containerd.io -y
 
 docker_run:
 	@if [ -z "$$(sudo docker ps -a -q -f name=$(CONT))" ]; then \
@@ -352,6 +354,17 @@ clean_module:
 	$(RUN_IN_CONT) sh -c 'rm -rf $(KALLSYMS_SCRIPT_DEST) && mkdir -p $(KALLSYMS_SCRIPT_DEST)'
 	rm -rf $(MODULE_LOCAL_DEST)/$(MODULE_NAME).ko
 
+
+stack_alias.ko: MODULE_SRC=./linux-kernel-module/stack_alias
+stack_alias.ko: MODULE_DEST=/root/stack_alias
+stack_alias.ko: MODULE_NAME=stack_alias
+stack_alias.ko: V=1
+stack_alias.ko: build_module_full
+
+stack_alias_clean: MODULE_SRC=./linux-kernel-module/stack_alias
+stack_alias_clean: MODULE_DEST=/root/stack_alias
+stack_alias_clean: MODULE_NAME=stack_alias
+stack_alias_clean: clean_module
 # ====================================================
 # Grubby
 # ====================================================
