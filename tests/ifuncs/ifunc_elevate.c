@@ -97,6 +97,16 @@ static char* (*strcpy_resolver(void))(char*, const char*) {
     return strcpy_generic;
 }
 
+// extern int ker_strcmp(const char *s1, const char *s2);
+// __asm__ (".symver ker_strcmp,strncmp@ker");
+
+extern int my_strcmp(const char* s1, const char* s2);
+asm(".symver my_strcmp,strcmp@myv");
+
+extern int my_strcmp2(const char* s1, const char* s2);
+asm(".symver my_strcmp2,strcmp@myv2");
+
+
 // Define the ifunc - this will call strcpy_resolver at runtime
 // to determine which implementation to use
 char* my_strcpy(char* dest, const char* src) __attribute__((ifunc("strcpy_resolver")));
@@ -117,18 +127,28 @@ int main() {
     int pid = current_pid();
     printf("current_pid() = %d\n", pid);
 
+    //kernel strcmp
+    int cmp = strcmp("abc", "abd");
+    printf("strcmp(\"abc\", \"abd\") = %d\n", cmp);
+    
+    cmp = my_strcmp("abc", "abd");
+    printf("my_strcmp(\"abc\", \"abd\") = %d\n", cmp);
+
     sym_lower();
     printf("main: called sym_lower\n");
 
     // printf("Demonstrating ifunc usage:\n");
     
-    // // The first call will trigger the resolver
-    // my_strcpy(buffer, source);
-    // printf("Copied string: %s\n", buffer);
+    // The first call will trigger the resolver
+    my_strcpy(buffer, source);
+    printf("Copied string: %s\n", buffer);
     
-    // // Subsequent calls will use the already resolved function
-    // my_strcpy(buffer, "Second call");
-    // printf("Copied string: %s\n", buffer);
+    // Subsequent calls will use the already resolved function
+    my_strcpy(buffer, "Second call");
+    printf("Copied string: %s\n", buffer);
+
+    //dynlink version test
+    printf("kernel strcmp address: %p\n", (void*)my_strcmp);
     
     printf("DONE\n");
     return 0;

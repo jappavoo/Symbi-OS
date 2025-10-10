@@ -1,9 +1,29 @@
 CC = gcc
-CFLAGS = -O0 -ggdb -Wall -Wextra -mno-red-zone -fomit-frame-pointer -Wfatal-errors 
+CFLAGS = -O0 -ggdb -Wall -Wextra -mno-red-zone -fomit-frame-pointer -Wfatal-errors \
+	-fPIC
 CFLAGS += -I ../../Symlib/include -DDYNLINK
 
 all: $(TARGET)
 
+mylib.o: mylib.c
+	$(CC) $(CFLAGS) -c -o mylib.o mylib.c
+
+libmylib.so: mylib.o mylib.vers
+	$(CC) -shared -Wl,--version-script=mylib.vers -o libmylib.so mylib.o
+
+# Stripped version of the library (no debug sections)
+libmylib.nodebug.so: libmylib.so
+	objcopy --strip-debug libmylib.so libmylib.nodebug.so
+
+libmylib.stripall.so: libmylib.so
+	objcopy --strip-all libmylib.so libmylib.stripall.so
+
+# Version with no .symtab/.strtab (keeps .dynsym/.dynstr etc. for runtime)
+libmylib.novers.so: libmylib.so
+	objcopy \
+		--remove-section=.gnu.version \
+		--remove-section=.gnu.version_d \
+		libmylib.so libmylib.novers.so
 
 greeter.ko:
 	mkdir -p ../../built_modules
@@ -22,8 +42,8 @@ ifunc_elevate.o: ifunc_elevate.c
 ifunc_elevate.preproc.c: ifunc_elevate.c
 	$(CC) $(CFLAGS) -E ifunc_elevate.c -o ifunc_elevate.preproc.c
 
-i_load_mod: greeter.o load_mod.o ifunc_elevate.o
-	$(CC) $(CFLAGS) -o i_load_mod greeter.o load_mod.o ifunc_elevate.o -L../../Symlib/dynam_build -lSym -L/proc/ -lkallsyms 
+i_load_mod: greeter.o load_mod.o ifunc_elevate.o libmylib.so
+	$(CC) $(CFLAGS) -o i_load_mod greeter.o load_mod.o ifunc_elevate.o -lc -L. -lmylib -L../../Symlib/dynam_build -lSym -L. -lkallsyms 
 
 
 ifunc_e_early: CFLAGS +=  -L../../Symlib/dynam_build -lSym -I ../../Symlib/include
@@ -37,7 +57,7 @@ ifunc_elevate: ifunc_elevate.c
 
 
 clean:
-	rm -f ifunc_elevate ifunc_e_early i_load_mod greeter.o greeter.ko load_mod.o ifunc_elevate.o ifunc_elevate.preproc.c
+	rm -f ifunc_elevate ifunc_e_early i_load_mod greeter.o greeter.ko load_mod.o ifunc_elevate.o ifunc_elevate.preproc.c libmylib.so libmylib.nodebug.so libmylib.nosymtab.so mylib.o
 	$(MAKE) -C ../.. clean_module MODULE_SRC=./linux-kernel-module/greeter MODULE_DEST=/root/greeter MODULE_NAME=greeter
 
 .PHONY: all clean run

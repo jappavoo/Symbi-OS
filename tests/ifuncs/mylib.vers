@@ -1,0 +1,13 @@
+myv {
+    global:
+        strcmp;
+    local:
+        *;
+};
+
+myv2 {
+    global:
+        strcmp;
+    local:
+        *;
+};
