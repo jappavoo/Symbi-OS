@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -O0 -ggdb -Wall -Wextra -mno-red-zone -fomit-frame-pointer -Wfatal-errors \
+CFLAGS = -O0 -ggdb -Wall -Wextra -mno-red-zone -fno-omit-frame-pointer -Wfatal-errors \
 	-fPIC
 CFLAGS += -I ../../Symlib/include -DDYNLINK
 
@@ -27,7 +27,7 @@ libmylib.novers.so: libmylib.so
 
 greeter.ko:
 	mkdir -p ../../built_modules
-	$(MAKE) -C ../.. build_module_full MODULE_SRC=./linux-kernel-module/greeter MODULE_DEST=/root/greeter MODULE_NAME=greeter V=1
+	$(MAKE) -C ../.. build_module_full MODULE_SRC=./linux-kernel-module/greeter MODULE_DEST=/root/greeter MODULE_NAME=greeter V=1 FEDORA_RELEASE=43
 	cp ../../built_modules/greeter.ko .
 
 greeter.o: greeter.ko
@@ -42,8 +42,19 @@ ifunc_elevate.o: ifunc_elevate.c
 ifunc_elevate.preproc.c: ifunc_elevate.c
 	$(CC) $(CFLAGS) -E ifunc_elevate.c -o ifunc_elevate.preproc.c
 
-i_load_mod: greeter.o load_mod.o ifunc_elevate.o libmylib.so
+i_load_mod: greeter.o load_mod.o ifunc_elevate.o libmylib.so libkallsyms.so
 	$(CC) $(CFLAGS) -o i_load_mod greeter.o load_mod.o ifunc_elevate.o -lc -L. -lmylib -L../../Symlib/dynam_build -lSym -L. -lkallsyms 
+	readelf -Wa i_load_mod > i_load_mod.readelf.txt
+
+libkallsyms.so:
+	sudo cp /proc/libkallsyms.so .
+
+libkallsyms.a:
+	sudo cp /proc/libkallsyms.a .
+
+i_load_mod_static: greeter.o load_mod.o ifunc_elevate.o libmylib.so libkallsyms.a
+	$(CC) $(CFLAGS) -o i_load_mod_static greeter.o load_mod.o ifunc_elevate.o libkallsyms.a -lc -L. -lmylib -L../../Symlib/dynam_build -lSym 
+	readelf -Wa i_load_mod_static > i_load_mod_static.readelf.txt
 
 
 ifunc_e_early: CFLAGS +=  -L../../Symlib/dynam_build -lSym -I ../../Symlib/include
@@ -57,7 +68,7 @@ ifunc_elevate: ifunc_elevate.c
 
 
 clean:
-	rm -f ifunc_elevate ifunc_e_early i_load_mod greeter.o greeter.ko load_mod.o ifunc_elevate.o ifunc_elevate.preproc.c libmylib.so libmylib.nodebug.so libmylib.nosymtab.so mylib.o
-	$(MAKE) -C ../.. clean_module MODULE_SRC=./linux-kernel-module/greeter MODULE_DEST=/root/greeter MODULE_NAME=greeter
+	rm -f ifunc_elevate ifunc_e_early i_load_mod i_load_mod_static greeter.o greeter.ko load_mod.o ifunc_elevate.o ifunc_elevate.preproc.c libmylib.so libmylib.nodebug.so libmylib.nosymtab.so mylib.o libkallsyms.* *.readelf.txt
+	$(MAKE) -C ../.. clean_module MODULE_SRC=./linux-kernel-module/greeter MODULE_DEST=/root/greeter MODULE_NAME=greeter FEDORA_RELEASE=43
 
 .PHONY: all clean run

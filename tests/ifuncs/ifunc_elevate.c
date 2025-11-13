@@ -20,8 +20,7 @@ static int module_loaded = 0;
 
 static void* base_resolver(char* symbol_name) {
     printf("base_resolver: Resolving symbol %s\n", symbol_name);
-    sym_elevate();
-
+    
     if (!module_loaded) {
         int rc;
         
@@ -33,10 +32,11 @@ static void* base_resolver(char* symbol_name) {
             exit(1);
         }
         printf("Loaded kallsyms module\n");
-
+        
         module_loaded = 1;
     }
     
+    sym_elevate();
     unsigned long addr = kallsyms_lookup_name(symbol_name);
     printf("Resolved symbol %s to address %p\n", symbol_name, (void*)addr);
     sym_lower();
@@ -101,10 +101,10 @@ static char* (*strcpy_resolver(void))(char*, const char*) {
 // __asm__ (".symver ker_strcmp,strncmp@ker");
 
 extern int my_strcmp(const char* s1, const char* s2);
-asm(".symver my_strcmp,strcmp@myv");
+asm(".symver my_strcmp,strcmp@GLIBC_2.2.5");
 
 extern int my_strcmp2(const char* s1, const char* s2);
-asm(".symver my_strcmp2,strcmp@myv2");
+asm(".symver my_strcmp2,strcmp@GLIBC_2.2.5");
 
 
 // Define the ifunc - this will call strcpy_resolver at runtime
@@ -137,15 +137,15 @@ int main() {
     sym_lower();
     printf("main: called sym_lower\n");
 
-    // printf("Demonstrating ifunc usage:\n");
+    // // printf("Demonstrating ifunc usage:\n");
     
-    // The first call will trigger the resolver
-    my_strcpy(buffer, source);
-    printf("Copied string: %s\n", buffer);
+    // // The first call will trigger the resolver
+    // my_strcpy(buffer, source);
+    // printf("Copied string: %s\n", buffer);
     
-    // Subsequent calls will use the already resolved function
-    my_strcpy(buffer, "Second call");
-    printf("Copied string: %s\n", buffer);
+    // // Subsequent calls will use the already resolved function
+    // my_strcpy(buffer, "Second call");
+    // printf("Copied string: %s\n", buffer);
 
     //dynlink version test
     printf("kernel strcmp address: %p\n", (void*)my_strcmp);

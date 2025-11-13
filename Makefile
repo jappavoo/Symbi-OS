@@ -60,12 +60,12 @@ master_clean:
 # 6.16.0-kElevate: l_all
 # 6.16.0-kElevate: l_cp 
 # 6.16.0-kElevate: l_initrd
-# 6.16.0-kElevate: l_cp_vmlinux
+6.16.0-kElevate: l_cp_vmlinux
 # 6.16.0-kElevate: l_config
 # 6.16.0-kElevate: l_prepare
 # 6.16.0-kElevate: l_gdb_scripts
 # 6.16.0-kElevate: l_cp_gdb_scripts
-6.16.0-kElevate: l_build l_ins l_cp l_initrd
+# 6.16.0-kElevate: l_build l_ins l_cp l_initrd
 # 6.16.0-kElevate: grubby_add_kern
 # 6.16.0-kElevate: grubby_add_kern enable_sudo_pw_checking
 # 6.16.0-kElevate: grubby_set_kele_default_and_reboot

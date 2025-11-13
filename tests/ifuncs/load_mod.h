@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <elf.h>
 #include "LINF/sym_all.h"
+#include "L1/stack_switch.h"
 
 #define	ENOMEM		12	/* Out of memory */
 #define	EFAULT		14	/* Bad address */
@@ -73,35 +74,16 @@ int load_included_module();
 
 #ifdef DYNLINK
 
-extern void vfree(const void *addr);
-extern void *__vmalloc(unsigned long size, gfp_t gfp_mask);
+// extern int load_module(struct load_info *info, char *uargs,int flags);
+extern int __x64_sys_init_module(void* args);
 
-extern int __cond_resched(void);
-
-extern unsigned long _copy_from_user(void *to, void *from, unsigned long n);
-
-extern int load_module(struct load_info *info, char *uargs,
-		       int flags);
 
 // extern int printk(const char *fmt, ...);
 #else // DYNLINK
-// typedef (*void) (*__vmalloc_t)(unsigned long size, gfp_t gfp_mask);
-typedef void *(*__vmalloc_t)(unsigned long size, gfp_t gfp_mask);
-__vmalloc_t __vmalloc;
-
-typedef void (*vfree_t)(const void *addr);
-vfree_t vfree;
 
 
-typedef int (*__cond_resched_t)(void);
-__cond_resched_t __cond_resched;
-
-typedef unsigned long (*_copy_from_user_t)(void *to, void *from, unsigned long n);
-_copy_from_user_t _copy_from_user;
-
-typedef int (*load_module_t)(struct load_info *info, char *uargs,
-                             int flags);
-load_module_t load_module;
+typedef int (*__x64_sys_init_module_t)(void* args);
+__x64_sys_init_module_t __x64_sys_init_module;
 
 #endif // DYNLINK
 

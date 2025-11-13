@@ -21,4 +21,12 @@ vmlinux
 *.data
 attr_example
 
+main
+main_static
+main.preproc.c
+
 tests/crashes
+gdb_scripts
+
+i_load_mod
+i_load_mod_static
