@@ -88,8 +88,7 @@ extern int __cond_resched(void);
 extern int load_module(struct load_info *info, char *uargs,
 		       int flags);
 
-extern int __x64_sys_init_module(void* umod, unsigned long len,
-                                 const char *uargs);
+extern int __x64_sys_init_module(void* args);
 
 // extern int printk(const char *fmt, ...);
 #else // DYNLINK

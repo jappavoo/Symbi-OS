@@ -84,9 +84,17 @@ void print_load_info(const struct load_info *info) {
 // }
 
 void do_load_module(void* umod, unsigned long len, char* uargs, int* ret_out) {
-    PRINTF("do_load_module: umod=%p len=%lu uargs=%p\n", umod, len, uargs);
-    int ret = __x64_sys_init_module(umod, len, uargs);
-    PRINTF("do_load_module: exited __x64_sys_init_module ret=%d\n", ret);
+    //prepare argument passing
+    // mov    0x60(%rdi),%rdx
+    // mov    0x68(%rdi),%rsi
+    // mov    0x70(%rdi),%rdi
+    
+    uint64_t args[3];
+    args[0] = (uint64_t)uargs; //rdx
+    args[1] = (uint64_t)len; //rsi
+    args[2] = (uint64_t)umod; //rdi
+
+    int ret = __x64_sys_init_module((void*)(args) - 0x60);
     if (ret_out) {
         *ret_out = ret;
     }
@@ -151,7 +159,9 @@ int greet_from_blob() {
 
 	// ret = load_module(info, uargs, 0);
     // ret = __x64_sys_init_module((void*)_binary_greeter_ko_start, size, uargs);
+    PRINTF("do_load_module: umod=%p len=%lu uargs=%p\n", uargs, size, uargs);
     SYM_ON_KERN_STACK_DO(do_load_module((void*)_binary_greeter_ko_start, size, uargs, &ret));
+    PRINTF("do_load_module: exited __x64_sys_init_module ret=%d\n", ret);
     PRINTF("exited load_module ret=%d\n", ret);
 	
     // vfree(uargs);
