@@ -14,6 +14,10 @@
 
 void df_jmp_to_c(void);
 void tf_jmp_to_c(void);
+void int3_jmp_to_c(void);
+void db_jmp_to_c(void);
+
+
 // Descriptor table entry. For use with GDT, IDT
 struct dtr
 {
@@ -36,7 +40,7 @@ struct idt_entry {
 	uint32_t offset2; uint32_t reserved;
 };
 
-
+struct dtr old_idtr;
 
 //  Define the module metadata.
 #define MODULE_NAME "greeter"
@@ -109,6 +113,16 @@ void setup_df_interposition(void) {
     void * new_tf_handler_addr = (void *)&tf_jmp_to_c;
     set_idt_entry(new_idt, 14, new_tf_handler_addr);
     printk("Modified TF handler to point to %016llx\n", (unsigned long long)new_tf_handler_addr);
+  
+  
+    void *new_int3_handler_addr = (void *)&int3_jmp_to_c;
+    set_idt_entry(new_idt, 3, new_int3_handler_addr);
+    printk("Modified I3 handler to point to %016llx\n", (unsigned long long)new_int3_handler_addr);
+    
+
+    void * new_db_handler_addr = (void *)&db_jmp_to_c;
+    set_idt_entry(new_idt, 1, new_db_handler_addr);
+    printk("Modified DB handler to point to %016llx\n", (unsigned long long)new_db_handler_addr);
     
 
     // Load the new IDT
@@ -140,6 +154,9 @@ static int __init greeter_init(void)
     //print reference to df_jmp_to_c
     pr_info("%s: df_jmp_to_c is at 0x%p\n", MODULE_NAME, df_jmp_to_c);
 
+    //save original idtr
+    asm volatile ("sidt %0" : "=m" (old_idtr));
+
     return 0;
 }
 
@@ -147,6 +164,10 @@ static void __exit greeter_exit(void)
 {
     pr_info("%s: goodbye %s\n", MODULE_NAME, name);
     pr_info("%s: module unloaded from 0x%p\n", MODULE_NAME, greeter_exit);
+
+
+    //restore original idtr
+    asm volatile ("lidt %0" : : "m" (old_idtr));
 }
 
 module_init(greeter_init);

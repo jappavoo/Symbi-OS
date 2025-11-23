@@ -1,3 +1,7 @@
+#include <linux/types.h>
+#include <asm/ptrace.h>
+#include <linux/objtool.h>
+
 #define PRESENT 1
 #define WR_FT   1<<1
 #define USER_FT 1<<2
@@ -10,6 +14,8 @@
 
 #define CALL_TARG(FN) \
 __asm__("call " #FN);
+#define IRET __asm__("iretq");
+
 
 #define RET_TO_PG_FT                            \
   __asm__(" push   %rax                     \n\t\
@@ -72,3 +78,77 @@ __asm__("\
     POP_REGS                                    \
     RET_TO_PG_FT
 
+
+
+
+#define GET_CR3(VAR) __asm__("movq %%cr3,%0" : "=r"( VAR ));
+
+
+#define GET_DR(reg_num, var_name) \
+asm("mov %%db"#reg_num " , %0" : "=r"(var_name));
+
+#define SET_DR(reg_num, var_name)                   \
+  asm("mov %0,%%db"#reg_num :: "r"(var_name));
+
+#define GET_PC(var_name)         \
+  asm volatile (\
+    ANNOTATE_INTRA_FUNCTION_CALL \
+    "call here2\n\t" \
+                "here2:\n\t"     \
+                "pop %0"         \
+                : "=m" (hdl_pg));
+
+
+
+#define PUSH_FAKE_ERROR __asm__("push $0xbadbad");
+#define DROP_FAKE_ERROR __asm__("add $8, %rsp");
+
+#define TRAP_HANDLER(LAB, TARG)                \
+  NEW_HANDLER(LAB)                             \
+    PUSH_FAKE_ERROR                               \
+    PUSH_REGS                                  \
+    GET_PT_REG_PTR                                \
+    CALL_TARG(TARG)                              \
+    POP_REGS                                   \
+    DROP_FAKE_ERROR                               \
+    IRET
+
+struct rs_struct {
+  struct pt_regs pt_r;
+  uint64_t dr_hit;
+  uint64_t dr7;
+  uint64_t cr3;
+};
+
+struct scratchpad {
+  struct rs_struct get;
+  struct rs_struct set;
+  struct rs_struct control;
+  uint8_t debug;
+  uint8_t cnt;
+  uint8_t read_addr_msg;
+  char addr_msg[96];
+};
+
+
+struct DR6 {
+  union {
+    uint64_t val;
+    struct {
+      uint64_t B0 : 1, B1 : 1, B2 : 1, B3 : 1, Res : 9, BD : 1, BS : 1, BT : 1;
+    };
+  }__attribute__((packed));
+};
+static_assert(sizeof(struct DR6) == 8, "Size of DR6 is not correct");
+
+struct DR7 {
+  union {
+    uint64_t val;
+    struct {
+      uint64_t L0 : 1, G0 : 1, L1 : 1, G1 : 1, L2 : 1, G2 : 1, L3 : 1, G3 : 1,
+          LE : 1, GE : 1, : 3, GD : 1, : 2, RW0 : 2, LEN0 : 2, RW1 : 2,
+          LEN1 : 2, RW2 : 2, LEN2 : 2, RW3 : 2, LEN3 : 2, : 32;
+    };
+  }__attribute__((packed));
+};
+static_assert(sizeof(struct DR7) == 8, "Size of DR7 is not correct");
