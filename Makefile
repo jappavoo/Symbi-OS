@@ -54,13 +54,16 @@ master_clean:
 6.16.0-kElevate: KERN_REL=6.16.0
 6.16.0-kElevate: KERN_EXTRAVERSION=-kElevate
 6.16.0-kElevate: LINUX_BUILD=--branch dynam_priv-6.16 --single-branch --depth 1
-6.16.0-kElevate: KERN_VER=$(KERN_REL)$(KERN_EXTRAVERSION)+
+6.16.0-kElevate: KERN_VER=$(KERN_REL)$(KERN_EXTRAVERSION)
 6.16.0-kElevate: CONFIG=$(HOME)/linuxConfigs/5.14/USE_ME/symbiote_config
+6.16.0-kElevate: LOCAL_LINUX_PATH=./linux
 
 # 6.16.0-kElevate: l_all
-# 6.16.0-kElevate: l_cp 
+6.16.0-kElevate: master
+# 6.16.0-kElevate: l_cp l_initrd
 # 6.16.0-kElevate: l_initrd
-6.16.0-kElevate: l_cp_vmlinux
+# 6.16.0-kElevate: l_cp_vmlinux
+# 6.16.0-kElevate: docker_prepare_linux_build
 # 6.16.0-kElevate: l_config
 # 6.16.0-kElevate: l_prepare
 # 6.16.0-kElevate: l_gdb_scripts
@@ -70,7 +73,7 @@ master_clean:
 # 6.16.0-kElevate: grubby_add_kern enable_sudo_pw_checking
 # 6.16.0-kElevate: grubby_set_kele_default_and_reboot
 
-# l_all: docker_prepare_linux_build l_mrproper l_config l_build l_ins l_cp l_initrd
+l_all: docker_prepare_linux_build l_mrproper l_config l_build l_ins l_cp l_initrd
 
 # Baseline 5.14 kernel. Tested up & not including boot.
 5.14.0: FEDORA_RELEASE=35
@@ -224,7 +227,7 @@ add_to_docker_group:
 		echo "User $${USER} is already in the docker group."; \
 	fi
 
-docker_setup_and_start: install_docker docker_start_service docker_enable_service add_to_docker_group docker_run docker_install_git_make docker_install_dev_packages
+docker_setup_and_start:  docker_start_service docker_enable_service add_to_docker_group docker_run docker_install_git_make docker_install_dev_packages
 
 # ====================================================
 # Linux
@@ -349,7 +352,7 @@ KALLSYMS_SCRIPT_DEST ?= $(HOME)/kallsyms_script
 
 
 copy_module_src:
-	$(RUN_IN_CONT) sh -c 'rm -r $(MODULE_DEST)'
+	$(RUN_IN_CONT) sh -c 'rm -rf $(MODULE_DEST)'
 	$(RUN_IN_CONT) sh -c 'mkdir -p $(MODULE_DEST)'
 	sudo docker cp $(MODULE_SRC)/. $(CONT):$(MODULE_DEST)
 
