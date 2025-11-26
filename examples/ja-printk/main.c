@@ -1,12 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "L0/sym_lib.h"
-#include "dpld.h"
-
-//DECLARE_IFUNC(name, rettype, args)
-//these functions are defined in the kernel module we will load
-DECLARE_IFUNC(kernel_add, int, (int a, int b)) 
-DECLARE_IFUNC(current_pid, int, (void)) 
+#include "extension.h"
 
 //native kernel function that will be resolved at load time
 extern int _printk(const char *fmt, ...);
