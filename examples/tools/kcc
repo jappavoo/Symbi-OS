@@ -1,0 +1,122 @@
+#!/bin/bash
+#set -x
+scriptdir=$(dirname $(realpath $0))
+configdir=$scriptdir/config
+
+findlinuxdir()
+{
+    (
+	if [[ -d linux ]]; then
+	    echo $(pwd -P)/linux
+	elif [[ $(pwd -P) != $HOME ]]; then
+	    cd ..
+	    findlinuxdir
+	fi
+    )
+}
+
+[[ -z $LINUX_BUILD_PATH ]] && [[ -a $configdir/LINUX_BUILD_PATH ]] \
+    && LINUX_BUILD_PATH=$(< $configdir/LINUX_BUILD_PATH)
+
+[[ -z $LINUX_BUILD_PATH ]] && LINUX_BUILD_PATH=$(findlinuxdir)
+
+[[ -z $LINUX_BUILD_PATH ]] && {
+    echo "ERROR: LINUX_BUILD_PATH not set.  Either environment variable to path of your linux build or put path in $configdir/LINUX_BUILD_PATH" > /dev/stderr
+    exit -1
+}
+
+LINUX_BUILD_PATH=${LINUX_BUILD_PATH:-$(realpath ../linux)}
+curdir=$PWD
+tmpdir=$curdir/.ext
+
+[[ ! -d $tmpdir ]] && mkdir $tmpdir
+
+target=${target:-ext.kbin}
+name=${target%.kbin}
+
+[[ -z $target ]] && {
+    echo "USAGE: kcc [source]"
+    exit -1
+}
+
+if (( $# > 0 )); then
+    src=( $@ )
+else
+    src=( $(find $PWD -maxdepth 1 -name '*.kc') )
+fi
+
+(( ! ${#src[@]} ))  && {
+    echo "No .kc source files" > /dev/stderr
+    exit -1
+}
+
+for s in ${src[@]}; do
+    [[ ! -a $s ]] && {
+	echo "Can't find $s" > /dev/stderr
+	continue
+    }
+    t=$(basename ${s%.kc}.c)
+    [[ ! -a $tmpdir/$t ]] && ln -s $s $tmpdir/$t
+done
+
+[[ ! -a init.c ]] && {
+    cat > $tmpdir/init.c <<EOF
+#include <linux/module.h>
+
+//  Define the module metadata.
+#define MODULE_NAME "DYNPRIV_EXT"
+MODULE_AUTHOR("BU SESA");
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("BU SESA DYNPRIV PROCESS EXTENSION");
+MODULE_VERSION("0.1b");
+
+//  Define the name parameter.
+static char *name = "dynpriv ext";
+module_param(name, charp, S_IRUGO);
+MODULE_PARM_DESC(name, "The name to display in /var/log/kern.log");
+
+
+static int __init ext_init(void)
+{
+  pr_info("%s: module loaded at 0x%p\n", MODULE_NAME, ext_init);
+  pr_info("%s: args: name=%s\n", MODULE_NAME, name);
+  return 0;
+}
+
+static void __exit ext_exit(void)
+{
+    pr_info("%s: goodbye %s\n", MODULE_NAME, name);
+    pr_info("%s: module unloaded from 0x%p\n", MODULE_NAME, ext_exit);
+}
+
+module_init(ext_init);
+module_exit(ext_exit);
+EOF
+}
+
+cat > $tmpdir/Makefile <<EOF
+obj-m += ${name}.o
+${name}-y := \$(patsubst %.c,%.o,\$(wildcard *.c))
+ccflags-y := -I $curdir
+all:
+	make -C ${LINUX_BUILD_PATH} M=${tmpdir} modules
+
+clean:
+	make -C ${LINUX_BUILD_PATH} M=${tmpdir} clean
+	-rm -rf \$(wildcard *.o)
+
+EOF
+
+make -C $tmpdir
+
+(( $? )) && {
+    echo "ERROR: look in $tmpdir" > /dev/stderr
+    exit -1
+}
+
+(
+    cd $tmpdir
+    ld -r -b binary -z noexecstack -o $curdir/$target ${name}.ko
+)
+
+exit 0
