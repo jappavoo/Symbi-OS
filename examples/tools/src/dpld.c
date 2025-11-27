@@ -77,31 +77,84 @@ force_symres_now()
   return 1;
 }
 
-//assume sym_elevate has been called before this function
-int load_ext_module() {
-    VPRINTF("starting load_ext_module\n");
-    int ret = 0;
-    size_t size = (size_t)&_binary_ext_ko_size;
-
-    if (force_symres_now()==0) {
-      fprintf(stderr, "ERROR: failed to resolve symbols needed\n");
-      return 0;
-    }
-    VPRINTF("starting load_module\n");
-    char * uargs = "name=Hansi";
-
-
-    VPRINTF("do_load_module: umod=%p len=%lu uargs=%p\n", uargs, size, uargs);
-
-    SYM_ON_KERN_STACK_DO(do_load_module((void*)_binary_ext_ko_start, size, uargs, &ret));
-    
-    VPRINTF("do_load_module: exited __x64_sys_init_module ret=%d\n", ret);
-    
-    
-    VPRINTF("exited load_module ret=%d\n", ret);
-    return ret;
+uintptr_t gsread(uintptr_t offset)
+{
+  uintptr_t val;
+#if 1
+  __asm__ volatile (
+		    "mov %%gs:(%1), %0" 
+		    : "=r" (val)
+		    : "r" (offset)
+		    : "memory" );
+#else
+  val = __readgsqword(offset);
+#endif
+  return val;
 }
 
+// Repoduced from symlib but removes dependency on
+// hard coded cpu_current_top_of_stack gs offset
+
+// Var better be in memory
+#define DPLD_PRESERVE_USER_STACK(var) \
+  asm volatile("mov %%rsp, %0" : "=m"(var) : : "memory");	\
+
+#define DPLD_SWITCH_TO_KERN_STACK(offset) \
+  asm volatile("mov %%gs:(%0), %%rsp" : : "r" (offset) :);
+
+#define DPLD_RESTORE_USER_STACK(var)		\
+  asm volatile("mov %0, %%rsp" : : "m"(var));
+
+// These must be used as a pair
+#define DPLD_ON_KERN_STACK(ktos)		\
+  sym_elevate();				\
+  uint64_t user_stack;				\
+  DPLD_PRESERVE_USER_STACK(user_stack);		\
+  DPLD_SWITCH_TO_KERN_STACK(ktos);
+
+#define DPLD_ON_USER_STACK()		 \
+  DPLD_RESTORE_USER_STACK(user_stack);	 \
+  sym_lower();
+
+// Combine the two above so we don't have to remember to call both
+// but put all of user code inbetween
+#define DPLD_ON_KERN_STACK_DO(ktos,fn)			\
+  DPLD_ON_KERN_STACK(ktos);				\
+  fn;							\
+  DPLD_ON_USER_STACK();
+
+
+//assume sym_elevate has been called before this function
+int load_ext_module() {
+  VPRINTF("starting load_ext_module\n");
+  int ret = 0;
+  size_t size = (size_t)&_binary_ext_ko_size;
+  char * uargs = "name=Hansi";
+  uintptr_t ktos;
+  
+  if (force_symres_now()==0) {
+    fprintf(stderr, "ERROR: failed to resolve symbols needed\n");
+    return 0;
+  }
+  if (!resolve_sym("cpu_current_top_of_stack", (void **)&ktos)) {
+    VPRINTF("failed to resolve cpu_current_top_of_stack\n"); 
+  }
+  
+  VPRINTF("ktos=%lx\n", ktos);
+  
+  VPRINTF("starting load_module\n");
+  
+  VPRINTF("do_load_module: umod=%p len=%lu uargs=%p\n", uargs, size, uargs);
+  
+  DPLD_ON_KERN_STACK_DO(ktos,
+			do_load_module((void*)_binary_ext_ko_start, size, uargs, &ret));
+  
+  VPRINTF("do_load_module: exited __x64_sys_init_module ret=%d\n", ret);
+  
+  
+  VPRINTF("exited load_module ret=%d\n", ret);
+  return ret;
+}
 
 //resolves a symbol by name, loading the module if necessary
 //this is for symbols from the kernel module included in our fat binary
