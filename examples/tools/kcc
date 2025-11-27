@@ -127,6 +127,10 @@ EOF
 #include <stdint.h>
 #include <stdio.h>
 #include <elf.h>
+#include <string.h>
+#include <errno.h>
+#include <dlfcn.h>
+
 #include "LINF/sym_all.h"
 #include "L1/stack_switch.h"
 
@@ -135,11 +139,7 @@ static int verbose       = 1;
 
 extern unsigned long kallsyms_lookup_name(const char *name);
 
-#define VPRINTF(fmt, ...) do { \
-  if (verbose) {				\
-    fprintf(stderr, fmt, ##__VA_ARGS__);	\
-  }						\
-} while(0)
+#define VPRINTF(fmt, ...) do {   if (verbose) {				    fprintf(stderr, fmt, ##__VA_ARGS__);	  }						} while(0)
 
 extern const uint8_t _binary_ext_ko_start[];
 extern const uint8_t _binary_ext_ko_end[];
@@ -167,13 +167,51 @@ void do_load_module(void* umod, unsigned long len, char* uargs, int* ret_out) {
     }
 }
 
+static int
+resolve_sym(char *name, void **value)
+{
+  char *error;
+  dlerror();  // clear as per manpage
+  *value = dlsym(RTLD_DEFAULT, name);
+  error = dlerror();
+  if (error != NULL) {
+    fprintf(stderr, "%s\n", error);
+    return 0;
+  }
+  return 1;
+}
+
+static int
+force_symres_now()
+{
+  void *value;
+  // force symbol resolution before we elevate
+  
+  //  volatile void * initmod_sym = dlsym(RTLD_DEFAULT, "__x64_sys_init_module");
+  //  volatile void * topofstack_sym = dlsym(RTLD_DEFAULT, "cpu_current_top_of_stack");
+  // kludge to force symbol reference and thus resolution if the above
+  // does not work.... also see misc/find_kallsyms.c
+  // volatile void * ksym = (void *)__x64_sys_init_module;
+  // fprintf(stderr,"ksym:%p\n", ksym);
+  //  fprintf(stderr, "__x64_sys_init_module:%p cpu_current_top_of_stack:%p\n",
+  //  initmod_sym, topofstack_sym);
+  
+  // lookup symbols to avoid problems once elevated -- touch symbol tables
+  if (!resolve_sym("__x64_sys_init_module", &value)) return 0;
+  if (!resolve_sym("cpu_current_top_of_stack", &value)) return 0;
+  return 1;
+}
+
 //assume sym_elevate has been called before this function
 int load_ext_module() {
     VPRINTF("starting load_ext_module\n");
-    
     int ret = 0;
     size_t size = (size_t)&_binary_ext_ko_size;
-	
+
+    if (force_symres_now()==0) {
+      fprintf(stderr, "ERROR: failed to resolve symbols needed\n");
+      return 0;
+    }
     VPRINTF("starting load_module\n");
     char * uargs = "name=Hansi";
 
@@ -197,7 +235,7 @@ void* dpld_resolver(char* symbol_name) {
   
   if (!module_loaded) {
     int rc;
-    
+
     rc = load_ext_module();
     if (rc != 0) {
       VPRINTF("Failed to load ext module: %d\n", rc);
@@ -220,7 +258,6 @@ void* dpld_resolver(char* symbol_name) {
   }
   return (void*)addr;
 }
-
 EOF
 }
 
