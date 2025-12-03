@@ -10,11 +10,13 @@
 #include "L1/stack_switch.h"
 
 static int module_loaded = 0;
-static int verbose       = 1;
+static int verbose       = 0;
 
 extern unsigned long kallsyms_lookup_name(const char *name);
 
-#define VPRINTF(fmt, ...) do {   if (verbose) {				    fprintf(stderr, fmt, ##__VA_ARGS__);	  }						} while(0)
+#define VPRINTF(fmt, ...) do {					\
+    if (verbose) { fprintf(stderr, fmt, ##__VA_ARGS__); }	\
+  } while(0)
 
 extern const uint8_t _binary_ext_ko_start[];
 extern const uint8_t _binary_ext_ko_end[];
@@ -22,7 +24,6 @@ extern const uint8_t _binary_ext_ko_size;
 
 // extern int load_module(struct load_info *info, char *uargs,int flags);
 extern int __x64_sys_init_module(void* args);
-
 
 //__x64_sys_init_module expects the arguments to be on the stack
 void do_load_module(void* umod, unsigned long len, char* uargs, int* ret_out) {
@@ -60,70 +61,12 @@ static int
 force_symres_now()
 {
   void *value;
-  // force symbol resolution before we elevate
-  
-  //  volatile void * initmod_sym = dlsym(RTLD_DEFAULT, "__x64_sys_init_module");
-  //  volatile void * topofstack_sym = dlsym(RTLD_DEFAULT, "cpu_current_top_of_stack");
-  // kludge to force symbol reference and thus resolution if the above
-  // does not work.... also see misc/find_kallsyms.c
-  // volatile void * ksym = (void *)__x64_sys_init_module;
-  // fprintf(stderr,"ksym:%p\n", ksym);
-  //  fprintf(stderr, "__x64_sys_init_module:%p cpu_current_top_of_stack:%p\n",
-  //  initmod_sym, topofstack_sym);
-  
+  // force symbol resolution before we elevate  
   // lookup symbols to avoid problems once elevated -- touch symbol tables
   if (!resolve_sym("__x64_sys_init_module", &value)) return 0;
   if (!resolve_sym("cpu_current_top_of_stack", &value)) return 0;
   return 1;
 }
-
-uintptr_t gsread(uintptr_t offset)
-{
-  uintptr_t val;
-#if 1
-  __asm__ volatile (
-		    "mov %%gs:(%1), %0" 
-		    : "=r" (val)
-		    : "r" (offset)
-		    : "memory" );
-#else
-  val = __readgsqword(offset);
-#endif
-  return val;
-}
-
-#if 0
-// Repoduced from symlib but removes dependency on
-// hard coded cpu_current_top_of_stack gs offset
-
-// Var better be in memory
-#define DPLD_PRESERVE_USER_STACK(var) \
-  asm volatile("mov %%rsp, %0" : "=m"(var) : : "memory");	\
-
-#define DPLD_SWITCH_TO_KERN_STACK(offset) \
-  asm volatile("mov %%gs:(%0), %%rsp" : : "r" (offset) :);
-
-#define DPLD_RESTORE_USER_STACK(var)		\
-  asm volatile("mov %0, %%rsp" : : "m"(var));
-
-// These must be used as a pair
-#define DPLD_ON_KERN_STACK(ktos)		\
-  sym_elevate();				\
-  uint64_t user_stack;				\
-  DPLD_PRESERVE_USER_STACK(user_stack);		\
-  DPLD_SWITCH_TO_KERN_STACK(ktos);
-
-#define DPLD_ON_USER_STACK()		 \
-  DPLD_RESTORE_USER_STACK(user_stack);	 \
-  sym_lower();
-
-// Combine the two above so we don't have to remember to call both
-// but put all of user code inbetween
-#define DPLD_ON_KERN_STACK_DO(ktos,fn)			\
-  DPLD_ON_KERN_STACK(ktos);				\
-  fn;							\
-  DPLD_ON_USER_STACK();
-#endif
 
 //assume sym_elevate has been called before this function
 int load_ext_module() {
@@ -148,7 +91,8 @@ int load_ext_module() {
   VPRINTF("do_load_module: umod=%p len=%lu uargs=%p\n", uargs, size, uargs);
   
   SYM_ON_KERN_STACK_DYNSYM_DO(ktos,
-			      do_load_module((void*)_binary_ext_ko_start, size, uargs, &ret));
+			      do_load_module((void*)_binary_ext_ko_start,
+					     size, uargs, &ret));
   
   VPRINTF("do_load_module: exited __x64_sys_init_module ret=%d\n", ret);
   
