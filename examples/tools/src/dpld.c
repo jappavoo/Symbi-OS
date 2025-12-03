@@ -92,6 +92,7 @@ uintptr_t gsread(uintptr_t offset)
   return val;
 }
 
+#if 0
 // Repoduced from symlib but removes dependency on
 // hard coded cpu_current_top_of_stack gs offset
 
@@ -122,7 +123,7 @@ uintptr_t gsread(uintptr_t offset)
   DPLD_ON_KERN_STACK(ktos);				\
   fn;							\
   DPLD_ON_USER_STACK();
-
+#endif
 
 //assume sym_elevate has been called before this function
 int load_ext_module() {
@@ -146,8 +147,8 @@ int load_ext_module() {
   
   VPRINTF("do_load_module: umod=%p len=%lu uargs=%p\n", uargs, size, uargs);
   
-  DPLD_ON_KERN_STACK_DO(ktos,
-			do_load_module((void*)_binary_ext_ko_start, size, uargs, &ret));
+  SYM_ON_KERN_STACK_DYNSYM_DO(ktos,
+			      do_load_module((void*)_binary_ext_ko_start, size, uargs, &ret));
   
   VPRINTF("do_load_module: exited __x64_sys_init_module ret=%d\n", ret);
   
