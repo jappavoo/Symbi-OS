@@ -128,7 +128,7 @@ EOF
 
 cat > $tmpdir/Makefile <<EOF
 obj-m += ${name}.o
-${name}-y := \$(patsubst %.c,%.o,$cfiles) init.o
+${name}-y := \$(patsubst %.c,%.o,${cfiles[@]}) init.o
 ccflags-y := -I $curdir
 .PHONY: all clean
 
@@ -149,7 +149,7 @@ dpld.o: dpld.c
 extension.o: extension.c
 	gcc -c -o \$@ \$<
 
-extension.c extension.h: $cfiles
+extension.c extension.h: ${cfiles[@]}
 	$scriptdir/genifunc extension.h \$@ \$^
 
 clean:
