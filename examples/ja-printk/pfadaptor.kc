@@ -1,0 +1,24 @@
+#include <asm/desc.h>
+#include <asm/idtentry.h>
+
+void * pf_hdlr_addr(void);
+
+void * pf_hdlr_addr()
+{
+  static intptr_t orig_pf_asm_entry = 0;
+  struct desc_ptr idtr;
+  gate_desc *idt_table;
+  gate_desc *entry;
+  unsigned long val;
+
+  if (orig_pf_asm_entry == 0) {
+    store_idt(&idtr);	
+    val = idtr.address;   
+    idt_table = (gate_desc *)val; 
+    entry = &(idt_table[X86_TRAP_PF]);
+    val = gate_offset(entry);
+    orig_pf_asm_entry = val;
+  }
+
+  return (void *)val;
+}

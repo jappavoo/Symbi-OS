@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -x
+set -x
 scriptdir=$(dirname $(realpath $0))
 configdir=$scriptdir/config
 srcdir=$scriptdir/src
@@ -130,7 +130,7 @@ cat > $tmpdir/Makefile <<EOF
 obj-m += ${name}.o
 ${name}-y := \$(patsubst %.c,%.o,${cfiles[@]}) init.o
 ccflags-y := -I $curdir
-.PHONY: all clean
+.PHONY: all clean ext.ko
 
 all: libextension.a
 
