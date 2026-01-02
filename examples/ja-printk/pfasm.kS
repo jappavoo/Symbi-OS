@@ -14,10 +14,10 @@
 	
 	.text
 	.align 16
-	.global pf_adapt_fix_err_code
-pf_adapt_fix_err_code:
-	// add tests to only fix error code if faulting process is elevated,
-	// and address are fault type are sensible 
+	.global pf_adaptor_asm_fix_err_code
+pf_adaptor_asm_fix_err_code:
+	// NYI: Add tests to only fix error code if faulting process is elevated and
+	//      address and fault type are sensible.  
 	// x86 allows immediate and memory operands without using a register
 	incq  (pf_adaptor_cnt)
 	orl   $ERRCODE_PF_USER, (%rsp)
